@@ -1,0 +1,11 @@
+# dsh-usage-stats — bundle patch layer.
+#
+# 安装到 DSH profile 后，loader 会把这一行挂到根 entry 列表上。
+# inject 必须声明：等到 sessionPersistence（回溯历史会话）与 webServer
+# （注册 /usage/api 与前端取数）就绪后再激活 apply。
+- insert:
+    - id: usage-stats
+      name: 'dsh-usage-stats'
+      inject:
+        - sessionPersistence
+        - webServer
