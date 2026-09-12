@@ -24,13 +24,17 @@ function check(label, ok, detail = '') {
 
 // ── host 半 ───────────────────────────────────────────────────────────────
 console.log('host 半 lib/index.js')
-const host = (await import(pathToFileURL(path.join(root, 'lib', 'index.js')).href)).default
-check('可 import 且 default 导出对象', !!host && typeof host === 'object')
+const hostModule = await import(pathToFileURL(path.join(root, 'lib', 'index.js')).href)
+// 官方 bundle 用 named export（export const inject / export function apply），
+// default 对象形式也受支持；两种形状都接受，避免自检锁死其中一种。
+const host = hostModule.default ?? hostModule
+check('可 import 且导出插件', !!host && typeof host === 'object')
 check('apply 是函数', typeof host?.apply === 'function')
 check('inject 是数组', Array.isArray(host?.inject), JSON.stringify(host?.inject))
 
 // ── client 半 ─────────────────────────────────────────────────────────────
 console.log('client 半 lib/client.js')
+const pkgName = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).name
 const code = fs.readFileSync(path.join(root, 'lib', 'client.js'), 'utf8')
 let definition = null
 const sandbox = {
@@ -44,7 +48,7 @@ try {
   check('脚本可执行', false, String(error?.message ?? error))
 }
 check('调用 __ModuleLoader__.load 注册了模块', !!definition)
-check('id 与包名一致', definition?.id === 'dsh-usage-stats', String(definition?.id))
+check('bundle id 与包名一致（宿主按包名校验注册）', definition?.id === pkgName, `${String(definition?.id)} vs ${pkgName}`)
 
 const React = {
   createElement: () => null,
