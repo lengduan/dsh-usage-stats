@@ -1,4 +1,4 @@
-# dsh-usage-stats
+# @lengduan/dsh-usage-stats
 
 DeepSeek Harness 的**用量统计**插件（只统计用量，不做费用计算）。
 
@@ -32,8 +32,18 @@ DeepSeek Harness 的**用量统计**插件（只统计用量，不做费用计�
 
 ## 安装
 
+从 npm 装（已发布包）：
+
 ```sh
-dsh plugin --profile web add file:C:/lengduan/githubs/dsh-usage-stats
+dsh plugin --profile web add @lengduan/dsh-usage-stats
+```
+
+从源码装（本地开发调试）：
+
+```sh
+git clone https://github.com/lengduan/dsh-usage-stats
+cd dsh-usage-stats
+dsh plugin --profile web add .
 ```
 
 装完需要重启 dsh web 服务。

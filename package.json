@@ -1,8 +1,12 @@
 {
-  "name": "dsh-usage-stats",
+  "name": "@lengduan/dsh-usage-stats",
   "version": "0.1.0",
   "description": "DSH 用量统计插件：SQLite 本地账本，按天 / 按模型统计输入、输出、缓存命中、总计；区分对话调用与内部调用，只统计用量不做费用计算。",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lengduan/dsh-usage-stats.git"
+  },
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -33,6 +37,9 @@
     "cordis.patch.yml",
     "README.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1"
   }

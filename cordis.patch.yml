@@ -5,7 +5,7 @@
 # （注册 /usage/api 与前端取数）就绪后再激活 apply。
 - insert:
     - id: usage-stats
-      name: 'dsh-usage-stats'
+      name: '@lengduan/dsh-usage-stats'
       inject:
         - sessionPersistence
         - webServer
