@@ -1,6 +1,6 @@
 {
   "name": "@lengduan/dsh-usage-stats",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "DSH 用量统计插件：SQLite 本地账本，按天 / 按模型统计输入、输出、缓存命中、总计；区分对话调用与内部调用，只统计用量不做费用计算。",
   "keywords": [
     "dsh-plugin",
