@@ -17,7 +17,7 @@ DeepSeek Harness 的**用量统计**插件。每次模型调用的四类 token �
 | DSH 形态 | Web GUI profile（`dsh web` / `--profile web`） |
 | 运行环境 | Node.js ≥ 22.5（依赖内置 `node:sqlite`）；Web 端需要会话视图提供 `conversation.view` 扩展点 |
 | 宿主服务 | `sessionPersistence`、`webServer`，以及 `session/event`、`llm/stream` 事件 |
-| 最后本机验证 | 2026-09-12，Windows，DSH mainline 本机构建 + web profile：tab 正常渲染、账本落库、按天 / 按模型聚合正确 |
+| 最后本机验证 | 2026-09-16，Windows，DSH mainline 本机构建 + web profile：tab 正常渲染、账本落库、按天 / 按模型聚合正确；`/usage/api` 围栏在真实 socket 下验证（loopback 200、LAN 403） |
 | 未声称 | 未做跨平台与跨 DSH 版本矩阵；DSH mainline 的 DOM / class 漂移可能影响前端表格样式 |
 
 ## Install / Uninstall
@@ -77,11 +77,13 @@ dsh plugin --profile web add .
 
 | 面 | 行为 |
 |---|---|
-| 网络 | 无出网请求。前端只 POST 本机 `/usage/api` |
+| 网络 | 无出网请求。前端只 POST 本机 `/usage/api`；非 loopback 来源被围栏拒绝，远程访问需经远程门控通道 |
 | 文件系统 | 只读写 `$DSH_HOME/storages/usage-stats/usage.db`（含 WAL 伴生文件）；回溯历史时经 `sessionPersistence` 服务读会话日志 |
 | 凭据 / 会话内容 | 不读 token、密钥、消息正文；只取用量数字与 session id、provider、model、时间、purpose |
 | 宿主服务 | 订阅 `session/event` 与 `llm/stream`，注册 `/usage/api`，注入 `sessionPersistence` / `webServer` |
 | 数据去向 | 全部留在本机账本，不外发、不写第三方 |
+
+**访问控制**：`/usage/api` 只接受 loopback 来源 —— socket 远端地址与 `Host` 头都必须是 loopback，并拒绝 `cross-site` 与外来 `Origin`。DSH web 绑到 LAN 时，同网段设备直接调用会拿到 `403 {"error":"forbidden: loopback-only"}`。远程访问（`@linxin666/dsh-remote-web-ui` 的配对门控通道）下，前端探测到 403 后自动改走 `/remote/usage/api`，由宿主以 127.0.0.1 重发；未安装该插件时只影响远程场景，本机使用不受影响。
 
 **统计口径**：输入（未命中）/ 输出 / 缓存命中 / 缓存写入 / 总量；provider 给出 `totalTokens` 时优先采用，否则四类相加。
 
@@ -107,6 +109,8 @@ dsh plugin --profile web add .
 | 启动报 SQLite / 权限错误 | 确认 `$DSH_HOME/storages/usage-stats/` 可写；目录被占用或磁盘满会让账本打不开，此时接口返回 `账本不可用` |
 | 用量页里的按钮点不动 | 对话区两侧的宽度把手（40px 的 col-resize 条）会压在本页上抢走 pointerdown；本插件在用量页挂载期间会隐藏这两个把手，若仍复现请提 issue |
 | 卸载后 tab 还在 | 硬刷新页面；确认 profile 的 `dsh.profile.bundles` 已不再列出该包 |
+| 远程访问（手机 / 局域网）下用量面板报「需经远程门控通道」 | 该面板在远程场景依赖 `@linxin666/dsh-remote-web-ui` 的配对门控通道：确认装了该插件且本机设备已配对；本机 127.0.0.1 访问不受影响 |
+| 局域网直连 `/usage/api` 返回 403 | 预期行为（围栏）：该接口只服务本机，远程使用请走上述配对门控通道 |
 
 日志：`dsh web` 的终端输出（插件只经 `ctx.logger.warn` 输出告警）+ 浏览器控制台。插件不写独立日志文件。
 
@@ -127,8 +131,9 @@ dsh plugin --profile web add .   # 以本仓目录联调
 |---|---|
 | `lib/index.js` | host 半：账本、订阅、`/usage/api` |
 | `lib/client.js` | 浏览器 bundle：`conversation.view` 的「用量统计」tab |
+| `lib/loopback-fence.js` | `/usage/api` 的请求级 loopback 围栏（socket + Host + 同源标记） |
 | `cordis.patch.yml` | bundle 层，按**包名**插入插件行 |
-| `scripts/verify.mjs` | 自检：host 半可 import 并导出 `inject`/`apply`；client 半的 `factory` 返回模块对象、bundle id 与 package.json 的 `name` 一致、确实注册到 `conversation.view` |
+| `scripts/verify.mjs` | 自检：host 半可 import 并导出 `inject`/`apply`；client 半的 `factory` 返回模块对象、bundle id 与 package.json 的 `name` 一致、确实注册到 `conversation.view`；另覆盖围栏判定与「403 后改走 `/remote`」的取数路径 |
 
 改完 host 半需重启 `dsh web`，只改 client 半刷新页面即可。提交前请跑 `node scripts/verify.mjs`，它是 CI 之外唯一的门禁。
 
