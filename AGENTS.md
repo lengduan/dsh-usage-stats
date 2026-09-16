@@ -18,12 +18,19 @@
 | 2 | 改 `package.json` 的 `version`；先 `git fetch origin`，本地落后于 `origin/master` 则先 `git pull` | 无远程跟踪分支则跳过 fetch |
 | 3 | 跑 `node scripts/verify.mjs` | 必须全绿；它是 CI 之外唯一门禁 |
 | 4 | 提交：代码改动与版本号分成两个 commit，Conventional Commits，subject 中文 | 不 amend、不 force push、不跳过 hooks |
-| 5 | **推送 GitHub**：`git push origin master` | 发版必须推送，不允许只发 npm 不推仓库 |
-| 6 | **发 npm**：`npm publish` | 外网走本机代理 `127.0.0.1:7897`，命令里显式设 `HTTP_PROXY` / `HTTPS_PROXY` |
-| 7 | 验证 registry：新版本已是 `latest`（`https://registry.npmjs.org/@lengduan/dsh-usage-stats/latest`） | 不能只信 `npm publish` 的输出，publish 后传播需要时间 |
+| 5 | **推送 GitHub**：`git push origin master` | 发版必须推送；tag 触发发布，仓库不推则 workflow 里的提交不存在 |
+| 6 | **打 tag 触发发布**：`git tag v<版本号>` 然后 `git push origin v<版本号>` | tag 打在含该版本号的提交上，`v` 前缀（workflow 匹配 `v[0-9]+.[0-9]+.[0-9]+`）；外网走本机代理 `127.0.0.1:7897` |
+| 7 | **看 Actions 结果 + 验证 registry**：`gh run list --limit 3`、`gh run view <run-id>`；新版本已是 `latest`（`https://registry.npmjs.org/@lengduan/dsh-usage-stats/latest`） | run 结论必须 success；不能只信 workflow 输出，publish 后传播与自动审核需要时间 |
 | 8 | 升级本机 profile（见下节） | profile 在 `~/.dsh/profiles/web` |
 | 9 | 重启 `:3080` **前必须显式询问用户** | 重启会断开用户当前页面，不得擅自重启 |
 | 10 | 重启后在 `:3080` 真实 GUI 复核 | 涉及 UI 或 host 路由的改动必做 |
+
+### 触发发布（GitHub Actions）
+
+- 发布由 `.github/workflows/publish.yml` 承担，走 npm 可信发布（Trusted Publishing / OIDC）：workflow 不注入任何 token，provenance 由 npm 自动生成，本地不再执行 `npm publish`。
+- 触发方式：推 `v<版本号>` tag（workflow 先校验 tag 与 `package.json` 版本一致，再发布），或在 Actions 页面手动 `workflow_dispatch` 补发。
+- workflow 只跑 `node scripts/verify.mjs`（本项目零依赖、无构建步骤），随后 `npm publish --access public`。
+- npm 侧可信发布者配置：Workflow filename `publish.yml`、Environment name 留空（因此 workflow 也不声明 `environment`）、Allowed actions 含 `npm publish`。
 
 ### 升级本机 profile
 
