@@ -7,7 +7,7 @@
  *      插件静默失效，而 dsh web 本身仍能正常启动）。
  *   3. /usage/api 的访问控制：非 loopback 来源必须被围栏拒绝，而远程访问下
  *      client 半要能改走 remote-web-ui 的 /remote 门控通道。
- * 另外模拟一次 apply，确认 tab 真的注册到了 conversation.view。
+ * 另外模拟一次 apply，确认侧栏面板行与中栏页面都注册上了，且会话顶部不再有 tab。
  *
  * 用法：node scripts/verify.mjs
  */
@@ -99,14 +99,17 @@ check('factory 返回模块对象（不是 undefined）', exported !== null && t
 check('导出 apply', typeof exported?.apply === 'function')
 check('导出 inject', Array.isArray(exported?.inject))
 
-// 模拟宿主 ctx，确认 apply 真的注册了 tab
-let registered = null
+// 模拟宿主 ctx，确认 apply 注册了侧栏行与中栏页面，且没有注册会话顶部 tab
+const registered = {}
 const ctx = {
   get(name) {
     if (name === 'slots') {
       return {
         inject: (_slotName, fn) => fn(),
-        register: (options, Component) => { registered = { options, Component }; return () => {} },
+        register: (options, Component) => {
+          registered[options.name] = { options, Component }
+          return () => {}
+        },
       }
     }
     return undefined
@@ -117,9 +120,16 @@ try {
 } catch (error) {
   check('apply 可执行', false, String(error?.message ?? error))
 }
-check('注册到 conversation.view', registered?.options?.name === 'conversation.view')
-check('tab id 正确', registered?.options?.id === 'usage-stats', String(registered?.options?.id))
-check('tab label 可用', typeof registered?.options?.label === 'function' && !!registered.options.label())
+const row = registered['sidebar.panellist']?.options
+const page = registered['main']?.options
+check('注册侧栏面板行 sidebar.panellist', row?.name === 'sidebar.panellist')
+check('侧栏行 id 与 main 槽 key 同源', row?.id === 'usage-stats' && page?.key === row?.id,
+  `row=${String(row?.id)} main=${String(page?.key)}`)
+check('侧栏行排在内置行与第三方行之后（order > 40）',
+  Number.isFinite(row?.order) && row.order > 40, String(row?.order))
+check('侧栏行 label 可用', typeof row?.label === 'function' && !!row.label())
+check('注册中栏页面 main', page?.name === 'main')
+check('不再注册 conversation.view 的 tab', registered['conversation.view'] === undefined)
 
 // ── client 半：远程访问的取数路径 ─────────────────────────────────────────
 // 围栏会拒绝非 loopback 来源，此时 client 半应改走 remote-web-ui 的 /remote
@@ -156,7 +166,11 @@ async function usagePaths(fetchImpl) {
   let Component = null
   mod.apply({
     get: (name) => (name === 'slots'
-      ? { inject: (_slot, fn) => fn(), register: (_options, C) => { Component = C; return () => {} } }
+      ? {
+        inject: (_slot, fn) => fn(),
+        // 取中栏页面（有取数逻辑的那个），侧栏行的字形不参与取数。
+        register: (options, C) => { if (options.name === 'main') Component = C; return () => {} },
+      }
       : undefined),
   })
   Component({})
