@@ -14,7 +14,7 @@ DeepSeek Harness 的**用量统计**插件。每次模型调用的四类 token �
 
 | 项 | 声明 |
 |---|---|
-| DSH 形态 | Web GUI profile（`dsh web` / `--profile web`） |
+| DSH 形态 | DSH 桌面客户端（固定 `127.0.0.1:19387`，活动 profile `--profile desktop`）；源码 `dsh web`（`:3080`）已退居回落 |
 | 运行环境 | Node.js ≥ 22.5（依赖内置 `node:sqlite`）；Web 端需要会话视图提供 `conversation.view` 扩展点 |
 | 宿主服务 | `sessionPersistence`、`webServer`，以及 `session/event`、`llm/stream` 事件 |
 | 最后本机验证 | 2026-09-16，Windows，DSH mainline 本机构建 + web profile：tab 正常渲染、账本落库、按天 / 按模型聚合正确；`/usage/api` 围栏在真实 socket 下验证（loopback 200、LAN 403） |
@@ -22,19 +22,19 @@ DeepSeek Harness 的**用量统计**插件。每次模型调用的四类 token �
 
 ## Install / Uninstall
 
-从 npm 安装：
+从 npm 安装（本机 DSH 为桌面客户端，活动 profile 是 `desktop`）：
 
 ```sh
-dsh plugin --profile web add @lengduan/dsh-usage-stats
+dsh plugin --profile desktop add @lengduan/dsh-usage-stats
 ```
 
 升级：
 
 ```sh
-dsh plugin --profile web update @lengduan/dsh-usage-stats
+dsh plugin --profile desktop update @lengduan/dsh-usage-stats
 ```
 
-**禁用（不删依赖，账本保留）**：在 web profile 的 `cordis.patch.yml` 里把该行覆盖为 `disabled: true`：
+**禁用（不删依赖，账本保留）**：在 desktop profile 的 `cordis.patch.yml` 里把该行覆盖为 `disabled: true`：
 
 ```yaml
 - id: usage-stats
@@ -44,28 +44,28 @@ dsh plugin --profile web update @lengduan/dsh-usage-stats
 **彻底移除**：
 
 ```sh
-dsh plugin --profile web remove @lengduan/dsh-usage-stats
+dsh plugin --profile desktop remove @lengduan/dsh-usage-stats
 ```
 
 移除不会删除账本。要清空历史，手动删 `$DSH_HOME/storages/usage-stats/`（默认 `~/.dsh/storages/usage-stats/`），该操作不可恢复。
 
-装完或改完 patch 都需要重启 `dsh web`。
+装完或改完 patch 都需要重启 DSH 桌面客户端（托盘右键退出后重新启动；源码 `dsh web` 已退居回落）。
 
 从源码安装（开发调试）：
 
 ```sh
 git clone https://github.com/lengduan/dsh-usage-stats
 cd dsh-usage-stats
-dsh plugin --profile web add .
+dsh plugin --profile desktop add .
 ```
 
 ## Quick start
 
-1. 安装并重启 `dsh web`，打开任意一个已有对话的会话。
-2. 会话视图顶部出现「用量统计」tab，切过去；默认是「今日 · 全部口径」的表格。
-3. 用时间范围（今日 / 本周 / 上周 / 全部 / 指定日期）和口径（全部 / 对话 / 内部）筛选；点服务商行可折叠其下的模型明细，点「刷新」重新取数。
+1. 安装并重启 DSH 桌面客户端，打开任意一个已有对话的会话。
+2. 侧栏底部出现「用量统计」这一行（排在「插件」「自动化任务」这组按钮之后），点它切过去；默认是「今日 · 全部口径」的表格。
+3. 用时间范围（今日 / 本周 / 上周 / 全部 / 日期范围）和口径（全部 / 对话 / 内部）筛选；选「日期范围」时给出起止两端（默认今天～今天，只填一端按单日算）；点服务商行可折叠其下的模型明细，点「刷新」重新取数。
 
-最小验收：在任意会话发一句话触发一次模型调用，回到「用量统计」tab 点「刷新」，当天应出现该次调用的记录（输入 / 输出 / 缓存命中 / 缓存读写 / 总量）。
+最小验收：在任意会话发一句话触发一次模型调用，回到「用量统计」面板点「刷新」，当天应出现该次调用的记录（输入 / 输出 / 缓存命中 / 缓存读写 / 总量）。
 
 ## Configuration
 
@@ -103,18 +103,18 @@ dsh plugin --profile web add .
 
 | 现象 | 处理 |
 |---|---|
-| 会话顶部没有「用量统计」tab | 确认装的是 **web** profile 且已重启 `dsh web`；看浏览器控制台是否报 `client-modules: bundle … loaded without registering "<包名>"` —— 这类报错说明 client bundle 注册的 id 与包名不一致 |
-| tab 在，但一直「暂无记录」 | 先发一次消息触发调用；选「内部」口径时需要插件已运行过内部调用才有数据 |
+| 侧栏没有「用量统计」入口 | 确认装的是 **desktop** profile 且已重启 DSH 桌面客户端（托盘退出再启动）；看浏览器控制台是否报 `client-modules: bundle … loaded without registering "<包名>"` —— 这类报错说明 client bundle 注册的 id 与包名不一致 |
+| 入口在，但一直「暂无记录」 | 先发一次消息触发调用；选「内部」口径时需要插件已运行过内部调用才有数据 |
 | 数字比预期少 | 检查口径是否停在「对话」；历史回溯只在插件启动时跑一次，装完请重启 |
 | 启动报 SQLite / 权限错误 | 确认 `$DSH_HOME/storages/usage-stats/` 可写；目录被占用或磁盘满会让账本打不开，此时接口返回 `账本不可用` |
 | 用量页里的按钮点不动 | 对话区两侧的宽度把手（40px 的 col-resize 条）会压在本页上抢走 pointerdown；本插件在用量页挂载期间会隐藏这两个把手，若仍复现请提 issue |
-| 卸载后 tab 还在 | 硬刷新页面；确认 profile 的 `dsh.profile.bundles` 已不再列出该包 |
+| 卸载后入口还在 | 硬刷新页面；确认 profile 的 `dsh.profile.bundles` 已不再列出该包 |
 | 远程访问（手机 / 局域网）下用量面板报「需经远程门控通道」 | 该面板在远程场景依赖 `@linxin666/dsh-remote-web-ui` 的配对门控通道：确认装了该插件且本机设备已配对；本机 127.0.0.1 访问不受影响 |
 | 局域网直连 `/usage/api` 返回 403 | 预期行为（围栏）：该接口只服务本机，远程使用请走上述配对门控通道 |
 
-日志：`dsh web` 的终端输出（插件只经 `ctx.logger.warn` 输出告警）+ 浏览器控制台。插件不写独立日志文件。
+日志：客户端模式下没有 `dsh web` 那样的终端窗口，插件只经 `ctx.logger.warn` 输出告警（进宿主日志）+ 浏览器控制台。插件不写独立日志文件。
 
-回滚：`dsh plugin --profile web remove @lengduan/dsh-usage-stats` 后重启；账本文件可先行备份。
+回滚：`dsh plugin --profile desktop remove @lengduan/dsh-usage-stats` 后重启桌面客户端；账本文件可先行备份。
 
 ## Development
 
@@ -122,7 +122,7 @@ dsh plugin --profile web add .
 git clone https://github.com/lengduan/dsh-usage-stats
 cd dsh-usage-stats
 node scripts/verify.mjs          # 装载前自检
-dsh plugin --profile web add .   # 以本仓目录联调
+dsh plugin --profile desktop add .   # 以本仓目录联调
 ```
 
 无构建步骤，`lib/` 就是发布产物：
@@ -130,12 +130,12 @@ dsh plugin --profile web add .   # 以本仓目录联调
 | 文件 | 角色 |
 |---|---|
 | `lib/index.js` | host 半：账本、订阅、`/usage/api` |
-| `lib/client.js` | 浏览器 bundle：`conversation.view` 的「用量统计」tab |
+| `lib/client.js` | 浏览器 bundle：侧栏全局面板行「用量统计」+ 中栏 `main` 槽的用量页面 |
 | `lib/loopback-fence.js` | `/usage/api` 的请求级 loopback 围栏（socket + Host + 同源标记） |
 | `cordis.patch.yml` | bundle 层，按**包名**插入插件行 |
-| `scripts/verify.mjs` | 自检：host 半可 import 并导出 `inject`/`apply`；client 半的 `factory` 返回模块对象、bundle id 与 package.json 的 `name` 一致、确实注册到 `conversation.view`；另覆盖围栏判定与「403 后改走 `/remote`」的取数路径 |
+| `scripts/verify.mjs` | 自检：host 半可 import 并导出 `inject`/`apply`；client 半的 `factory` 返回模块对象、bundle id 与 package.json 的 `name` 一致、注册侧栏面板行与中栏页面（且不再注册会话顶部 tab）；另覆盖围栏判定与「403 后改走 `/remote`」的取数路径 |
 
-改完 host 半需重启 `dsh web`，只改 client 半刷新页面即可。提交前请跑 `node scripts/verify.mjs`，它是 CI 之外唯一的门禁。
+改完 host 半需重启 DSH 桌面客户端；只改 client 半由宿主的 HMR 轮询自动重载（默认 500ms 比对 bundle 元数据），刷新页面亦可。提交前请跑 `node scripts/verify.mjs`，它是 CI 之外唯一的门禁。
 
 贡献：最小 diff。Issue / PR 请写清 DSH 版本或 mainline commit、本插件 commit、操作系统。
 
